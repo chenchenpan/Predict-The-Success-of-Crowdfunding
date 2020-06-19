@@ -360,9 +360,8 @@ def encode_dataset(df, metadata, dv=None, scaler=None, tokenizer=None, mode=None
 class EncodedData(object):
 
     def __init__(self, df, metadata, mode):
-        self.y, self.X_scal, self.X_encoded, self.dv, self.scaler, self.tokenizer = encode_dataset(df,
-                                                                                                    metadata, 
-                                                                                                    mode)
+        (self.y, self.X_scal, self.X_encoded, 
+         self.dv, self.scaler, self.tokenizer) = encode_dataset(df, metadata, mode)
 
 
 
