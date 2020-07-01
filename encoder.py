@@ -10,7 +10,7 @@ import argparse
 import os
 import json
 from sklearn import preprocessing
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 import tensorflow as tf
@@ -115,12 +115,9 @@ def main():
         if mode != 'tfidf' and mode != 'bow' and mode != 'word2vec':
             raise argparse.ArgumentTypeError(mode, "can't be recognized.")
 
-        ed = EncodedDataset(df, metadata, )
-        ed.y
-        ed.
-        ytrain, Xtrain_meta, Xtrain_text, dv, scaler, tokenizer = encode_dataset(df_train, metadata, dv=None, scaler=None, tokenizer=None, mode=mode)
-        ydev, Xdev_meta, Xdev_text, _, _, _ = encode_dataset(df_dev, metadata, dv=dv, scaler=scaler, tokenizer=tokenizer, mode=mode)
-        ytest, Xtest_meta, Xtest_text, _, _, _ = encode_dataset(df_test, metadata, dv=dv, scaler=scaler, tokenizer=tokenizer, mode=mode)
+        ytrain, Xtrain_struc, Xtrain_text, vectorizer, scaler, tokenizer = encode_dataset(df_train, metadata, vectorizer=None, scaler=None, tokenizer=None, mode=mode)
+        ydev, Xdev_meta, Xdev_text, _, _, _ = encode_dataset(df_dev, metadata, vectorizer=vectorizer, scaler=scaler, tokenizer=tokenizer, mode=mode)
+        ytest, Xtest_meta, Xtest_text, _, _, _ = encode_dataset(df_test, metadata, vectorizer=vectorizer, scaler=scaler, tokenizer=tokenizer, mode=mode)
 
         if mode == 'tfidf':
 
@@ -136,9 +133,9 @@ def main():
             print('Saved the encoded text inputs!')
 
     else:
-        ytrain, Xtrain_meta, _, dv, scaler, _ = encode_dataset(df_train, metadata)
-        ydev, Xdev_meta, Xdev_text, _, _, _ = encode_dataset(df_dev, metadata, dv=dv, scaler=scaler)
-        ytest, Xtest_meta, Xtest_text, _, _, _ = encode_dataset(df_test, metadata, dv=dv, scaler=scaler)
+        ytrain, Xtrain_meta, _, vectorizer, scaler, _ = encode_dataset(df_train, metadata)
+        ydev, Xdev_meta, Xdev_text, _, _, _ = encode_dataset(df_dev, metadata, vectorizer=vectorizer, scaler=scaler)
+        ytest, Xtest_meta, Xtest_text, _, _, _ = encode_dataset(df_test, metadata, vectorizer=vectorizer, scaler=scaler)
 
 
     ### save the results.
@@ -160,8 +157,8 @@ def main():
     print('Saved the encoded meta inputs!')
     
     ### save all the token 
-    dv_path = os.path.join(path_to_data, 'cat_vectorizer.pkl')
-    joblib.dump(dv, dv_path)
+    vectorizer_path = os.path.join(path_to_data, 'cat_vectorizer.pkl')
+    joblib.dump(vectorizer, vectorizer_path)
 
     scaler_path = os.path.join(path_to_data, 'scaler.pkl')
     joblib.dump(scaler, scaler_path)
@@ -274,11 +271,13 @@ def encode_num(df_X_num):
     return X_num
 
 
-def encode_metadata(metadata, df_X_float, df_X_int, df_X_cat, df_X_datetime, df_X_bool, dv, scaler):
+def encode_strucdata(metadata, df_X_float, df_X_int, df_X_cat, df_X_datetime, df_X_bool, vectorizer, scaler):
     """Encode the meta data part in dataset, such as numerical and categorical data.
         
     """
-    print('Starting to encode meta data...')
+    print('Starting to encode structural data...')
+
+    # df_y, _, df_X_float, df_X_int, df_X_cat, df_X_datetime, df_X_bool = separate_input_output_cols(df, metadata)
     
     X_list = []
     cols_name = []
@@ -303,59 +302,59 @@ def encode_metadata(metadata, df_X_float, df_X_int, df_X_cat, df_X_datetime, df_
 
     if scaler == None:
         scaler = StandardScaler()
-        X_scal = scaler.fit_transform(X_arr)
+        X_struc = scaler.fit_transform(X_arr)
     else:
-        X_scal = scaler.transform(X_arr)
+        X_struc = scaler.transform(X_arr)
 
-    assert len(cols_name) == X_scal.shape[1]
-    print('Except boolean, categorical and text input data after encoding, the shape is {}'.format(X_scal.shape))
+    assert len(cols_name) == X_struc.shape[1]
+    print('Except boolean, categorical and text input data after encoding, the shape is {}'.format(X_struc.shape))
     print('we have {} columns.'.format(len(cols_name)))
 
     ### encode boolean columns
     if df_X_bool.shape[1] > 0:
         X_bool = encode_bool(df_X_bool)
         cols_name += metadata['input_bool']
-        X_scal = np.concatenate([X_scal, X_bool], axis=1)
+        X_struc = np.concatenate([X_struc, X_bool], axis=1)
 
     ### encode the categorical columns 
     if df_X_cat.shape[1] > 0:
         X_cat_dict = df_X_cat.to_dict(orient='records')
 
-        if dv == None:   
-            dv = DictVectorizer(sparse=False)
-            X_cat = dv.fit_transform(X_cat_dict)
+        if vectorizer == None:   
+            vectorizer = DictVectorizer(sparse=False)
+            X_cat = vectorizer.fit_transform(X_cat_dict)
             
         else:
-            X_cat = dv.transform(X_cat_dict)
+            X_cat = vectorizer.transform(X_cat_dict)
 
-        vocab = dv.vocabulary_
+        vocab = vectorizer.vocabulary_
         vocab_od = collections.OrderedDict(sorted(vocab.items(), key=lambda x:x[1]))
         cat_encoded_cols = list(vocab_od.keys())
         cols_name += cat_encoded_cols
-        X_scal = np.concatenate([X_scal, X_cat], axis=1)
+        X_struc = np.concatenate([X_struc, X_cat], axis=1)
 
-    assert len(cols_name) == X_scal.shape[1]
-    print('Non-text input data after encoding, the shape is {}'.format(X_scal.shape))
+    assert len(cols_name) == X_struc.shape[1]
+    print('Non-text input data after encoding, the shape is {}'.format(X_struc.shape))
     print('We have {} columns.'.format(len(cols_name)))
     
-    return X_scal, dv, scaler
+    return X_struc, vectorizer, scaler
 
 
 def open_glove(glove_file_path):
 
-	print('Indexing word vectors.')
+    print('Indexing word vectors.')
 
-	embeddings_index = {}
-	f = open(glove_file_path)
-	for line in f:
-	    word, coefs = line.split(maxsplit=1)
+    embeddings_index = {}
+    f = open(glove_file_path)
+    for line in f:
+        word, coefs = line.split(maxsplit=1)
         coefs = np.fromstring(coefs, 'f', sep=' ')
-	    embeddings_index[word] = coefs
-	f.close()
+        embeddings_index[word] = coefs
+    f.close()
 
-	print('Found %s word vectors.' % len(embeddings_index))
+    print('Found %s word vectors.' % len(embeddings_index))
 
-	return embeddings_index
+    return embeddings_index
 
 
 
@@ -373,39 +372,39 @@ def encode_textdata(df_X_text, tokenizer, mode, max_words, maxlen, embedding_dim
         if tokenizer == None:
             tokenizer = Tokenizer(num_words=max_words)
             tokenizer.fit_on_sequences(texts)
-        X_encoded = tokenizer.sequences_to_matrix(texts, mode='tfidf')
-        print(X_encoded.shape)
+        X_text = tokenizer.sequences_to_matrix(texts, mode='tfidf')
+        print(X_text.shape)
         embedding_matrix = None
 
     if mode == 'glove':
-    	embeddings_index = open_glove(glove_file_path)
+        embeddings_index = open_glove(glove_file_path)
 
-    	# vectorize the text samples into a 2D integer tensor
-    	if tokenizer == None:
-    		tokenizer = Tokenizer(num_words=max_words, oov_token='<UNK>')
-    		tokenizer.fit_on_texts(texts)
-    		tokenizer.word_index = {e:i for e,i in tokenizer.word_index.items() if i <= max_words}
-			tokenizer.word_index[tokenizer.oov_token] = max_words + 1
-    	sequences = tokenizer.texts_to_sequences(texts)
+        # vectorize the text samples into a 2D integer tensor
+        if tokenizer == None:
+            tokenizer = Tokenizer(num_words=max_words, oov_token='<UNK>')
+            tokenizer.fit_on_texts(texts)
+            tokenizer.word_index = {e:i for e,i in tokenizer.word_index.items() if i <= max_words}
+            tokenizer.word_index[tokenizer.oov_token] = max_words + 1
+        sequences = tokenizer.texts_to_sequences(texts)
 
-    	word_index = tokenizer.word_index
-    	print('Found %s unique tokens.' % len(word_index))
+        word_index = tokenizer.word_index
+        print('Found %s unique tokens.' % len(word_index))
 
-    	X_encoded = pad_sequences(sequences, maxlen=maxlen, padding='post')
+        X_text = pad_sequences(sequences, maxlen=maxlen, padding='post')
 
-    	# prepare embedding matrix
-		embedding_matrix = np.zeros((len(word_index) + 1, embedding_dim))
-		for word, i in word_index.items():
-		    embedding_vector = embeddings_index.get(word)
-		    if embedding_vector is not None:
-		        # words not found in embedding index will be all-zeros.
-		        embedding_matrix[i] = embedding_vector
+        # prepare embedding matrix
+        embedding_matrix = np.zeros((len(word_index) + 1, embedding_dim))
+        for word, i in word_index.items():
+            embedding_vector = embeddings_index.get(word)
+            if embedding_vector is not None:
+                # words not found in embedding index will be all-zeros.
+                embedding_matrix[i] = embedding_vector
     
-    return X_encoded, embedding_matrix, tokenizer
+    return X_text, embedding_matrix, tokenizer
 
 
-def encode_dataset(df, metadata, dv=None, scaler=None, tokenizer=None, mode=None, 
-	max_words=None, maxlen=None, embedding_dim=None, glove_file_path=None):
+def encode_dataset(df, metadata, vectorizer=None, scaler=None, tokenizer=None, mode=None, 
+    max_words=None, maxlen=None, embedding_dim=None, glove_file_path=None):
 
     print('Starting to encode inputs...')
 
@@ -415,26 +414,29 @@ def encode_dataset(df, metadata, dv=None, scaler=None, tokenizer=None, mode=None
 
     # check if exist non-text data
     if df_X_float.shape[1] + df_X_int.shape[1] + df_X_cat.shape[1] + df_X_datetime.shape[1] + df_X_bool.shape[1] > 0:
-        X_scal, dv, scaler = encode_metadata(metadata, df_X_float, df_X_int, df_X_cat, df_X_datetime, df_X_bool, dv, scaler)
+        X_struc, vectorizer, scaler = encode_strucdata(metadata, df_X_float, df_X_int, df_X_cat, df_X_datetime, df_X_bool, vectorizer, scaler)
     else:
-        X_scal, dv, scaler = None, None, None
+        X_struc, vectorizer, scaler = None, None, None
+
+    print("complete encoding part of structural data!")
 
     if mode == None:  
-        X_encoded, embedding_matrix, tokenizer = None, None, None
+        X_text, embedding_matrix, tokenizer = None, None, None
 
     else:
-        X_encoded, embedding_matrix, tokenizer = encode_textdata(df_X_text, tokenizer, mode, max_words, 
-        														 maxlen, embedding_dim, glove_file_path)
+        X_text, embedding_matrix, tokenizer = encode_textdata(df_X_text, tokenizer, mode, max_words, 
+        	maxlen, embedding_dim, glove_file_path)
 
-    return y, X_scal, X_encoded, dv, scaler, tokenizer, embedding_matrix
+    print("complete encoding part of textual data!") 
+
+    return y, X_struc, X_text, vectorizer, scaler, tokenizer, embedding_matrix
 
 
+# class EncodedDataset(object):
 
-class EncodedDataset(object):
-
-    def __init__(self, df, metadata, mode):
-        (self.y, self.X_scal, self.X_encoded, self.dv,
-         self.scaler, self.tokenizer, self.embedding_matrix) = encode_dataset(df, metadata)
+#     def __init__(self, df, metadata, mode):
+#         (self.y, self.X_struc, self.X_text, self.vectorizer,
+#          self.scaler, self.tokenizer, self.embedding_matrix) = encode_dataset(df, metadata)
 
 
 
@@ -442,67 +444,88 @@ if __name__ == '__main__':
     main()
 
 
-# Separate config (max_words, maxlen, mode) and state (dv and scaler)
-scaler = Scaler(epsilon, mode='mean')
-scaler.fit_transform(X_train)
-scaler.transform(X_dev)
-
+# Separate config (max_words, maxlen, mode) and state (vectorizer and scaler)
 class WordEmbeddingConfig(object):
 
 	def __init__(self, max_words, maxlen, embedding_dim, glove_file_path):
-		pass
+		self.max_words = max_words
+		self.maxlen = maxlen
+		self.embedding_dim = embedding_dim
+		self.glove_file_path = glove_file_path
 
 class TFIDFConfig(object):
 	def __init__(self, max_words):
-		pass
+		self.max_words = max_words
 
 
-text_config=TFIDFEncodeConfig(100)
+# text_config=TFIDFEncodeConfig(100)
 
-encoder = Encoder(metadata, text_config=text_config)
+# encoder = Encoder(metadata, text_config=text_config)
 
-X_train, y_train = encoder.fit_transform(df_train)
-X_dev, y_dev = encoder.transform(df_dev)
-X_test, y_test = encoder.transform(df_test)
+# X_train, y_train = encoder.fit_transform(df_train)
+# X_dev, y_dev = encoder.transform(df_dev)
+# X_test, y_test = encoder.transform(df_test)
 
-X_demo, y_demo = encoder.transform(df_demo)
+# X_demo, y_demo = encoder.transform(df_demo)
+
+def contain_nontext_features(metadata):
+	n_dtype = len(metadata.keys())
+
+	if n_dtype == 1 and 'input_text' in metadata.keys():
+		return False
+	else:
+		return True
 
 class Encoder(object):
 
 	def __init__(self, metadata, text_config=None):
 		self.text_config = text_config
-		if text_config is None:
-			pass
-		elif isinstance(text_config, TFIDFConfig):
-			self.vectorizer = DictVectorizer(max_words=text_config.max_words)
-		elif isinstance(text_config, WordEmbeddingConfig):
-			...
-		else:
-			raise ValueError('Unknown type of config: {}'.format(type(text_config)))
-
+		self.metadata = metadata
 		self.has_nontext = contain_nontext_features(metadata)
 
-	def fit(self, df):
-		self.scaler = Scaler()
-		self.scaler.fit()
 
 	def fit_transform(self, df):
-		# 
-		self.scaler = Scaler()
-		self.scaler.fit(X_scal)
+		if self.text_config is None:
+			y, X_struc, X_text, self.vectorizer, self.scaler, _, _ = encode_dataset(df, self.metadata, mode=None)
+
+		elif isinstance(self.text_config, TFIDFConfig):
+			y, X_struc, X_text, self.vectorizer, self.scaler, self.tokenizer, _ = encode_dataset(
+				df, self.metadata, mode='tfidf', max_words=self.text_config.max_words)
+			
+		elif isinstance(self.text_config, WordEmbeddingConfig):
+			y, X_struc, X_text, self.vectorizer, self.scaler, self.tokenizer, self.embedding_matrix = encode_dataset(
+				df, self.metadata, mode='glove', max_words=self.text_config.max_words, maxlen=self.text_config.maxlen, 
+				embedding_dim=self.text_config.embedding_dim, glove_file_path=self.text_config.glove_file_path)
+
+		else:
+			raise ValueError('Unknown type of config: {}'.format(type(self.text_config)))
+
+		return y, X_struc, X_text
+
 
 	def transform(self, df):
-		self.scaler.transform(X_scal)
+		if self.text_config is None:
+			y, X_struc, X_text, _, _, _, _ = encode_dataset(df, self.metadata, vectorizer=self.vectorizer, scaler=self.scaler)
+
+		elif isinstance(self.text_config, TFIDFConfig):
+			y, X_struc, X_text, _, _, _, _ = encode_dataset(df, self.metadata, vectorizer=self.vectorizer,
+			 scaler=self.scaler, tokenizer=self.tokenizer, mode='tfidf', max_words=self.text_config.max_words)
+			
+		elif isinstance(self.text_config, WordEmbeddingConfig):
+			pass
+			y, X_struc, X_text, _, _, _, self.embedding_matrix = encode_dataset(df, self.metadata, vectorizer=self.vectorizer, 
+				scaler=self.scaler, tokenizer=self.tokenizer, mode='glove', max_words=self.text_config.max_words, maxlen=text_config.maxlen, 
+				embedding_dim=self.text_config.embedding_dim, glove_file_path=self.text_config.glove_file_path)
+
+		else:
+			raise ValueError('Unknown type of config: {}'.format(type(self.text_config)))
+
+		return y, X_struc, X_text
 
 
 
-indie_dataset = Dataset(df_train, df_dev, df_test, metadata, text_config=text_config)
-
-transform(epsilon, mean, std)
-encoded_X_train, mean, std = transform(X_train)
+# indie_dataset = Dataset(df_train, df_dev, df_test, metadata, text_config=text_config)
 
 
-y_train, X_scal, X_encoded, dv, scaler, tokenizer, embedding_matrix = encode_dataset(train_df, metadata, mode='tfidf')
-y_dev, ... = encode_dataset(dev_df, metadata, dv, scaler, tokenizer, embedding_matrix, mode)
-y_test, ... = encode_dataset(test_df, metadata, dv, scaler, tokenizer, embedding_matrix, mode)
+
 
