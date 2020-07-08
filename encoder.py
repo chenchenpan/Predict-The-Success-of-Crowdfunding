@@ -358,7 +358,7 @@ def open_glove(glove_file_path):
 
 
 
-def encode_textdata(df_X_text, tokenizer, mode, max_words, maxlen, embedding_dim, glove_file_path):
+def encode_textdata(df_X_text, tokenizer, mode, max_words, maxlen, embedding_dim, embeddings_index):
     ## encode text columns, encoded text features should not be normalized.
 
     print('Starting to encode text inputs...')
@@ -369,24 +369,22 @@ def encode_textdata(df_X_text, tokenizer, mode, max_words, maxlen, embedding_dim
 
     if mode == 'tfidf':
         # print(df_X_text.values)
-        if tokenizer == None:
+        if tokenizer is None:
             tokenizer = Tokenizer(num_words=max_words)
-            tokenizer.fit_on_sequences(texts)
-        X_text = tokenizer.sequences_to_matrix(texts, mode='tfidf')
+            tokenizer.fit_on_texts(texts)
+        X_text = tokenizer.texts_to_matrix(texts, mode='tfidf')
         print(X_text.shape)
         embedding_matrix = None
 
     if mode == 'glove':
-        embeddings_index = open_glove(glove_file_path)
-
         # vectorize the text samples into a 2D integer tensor
-        if tokenizer == None:
+        if tokenizer is None:
             tokenizer = Tokenizer(num_words=max_words, oov_token='<UNK>')
             tokenizer.fit_on_texts(texts)
             tokenizer.word_index = {e:i for e,i in tokenizer.word_index.items() if i <= max_words}
             tokenizer.word_index[tokenizer.oov_token] = max_words + 1
         sequences = tokenizer.texts_to_sequences(texts)
-
+        
         word_index = tokenizer.word_index
         print('Found %s unique tokens.' % len(word_index))
 
@@ -400,11 +398,11 @@ def encode_textdata(df_X_text, tokenizer, mode, max_words, maxlen, embedding_dim
                 # words not found in embedding index will be all-zeros.
                 embedding_matrix[i] = embedding_vector
     
-    return X_text, embedding_matrix, tokenizer
+    return X_text, tokenizer, embedding_matrix
 
 
 def encode_dataset(df, metadata, vectorizer=None, scaler=None, tokenizer=None, mode=None, 
-    max_words=None, maxlen=None, embedding_dim=None, glove_file_path=None):
+    max_words=None, maxlen=None, embedding_dim=None, embeddings_index=None):
 
     print('Starting to encode inputs...')
 
@@ -421,11 +419,11 @@ def encode_dataset(df, metadata, vectorizer=None, scaler=None, tokenizer=None, m
     print("complete encoding part of structural data!")
 
     if mode == None:  
-        X_text, embedding_matrix, tokenizer = None, None, None
+        X_text, tokenizer, embedding_matrix = None, None, None
 
     else:
-        X_text, embedding_matrix, tokenizer = encode_textdata(df_X_text, tokenizer, mode, max_words, 
-        	maxlen, embedding_dim, glove_file_path)
+        X_text, tokenizer, embedding_matrix = encode_textdata(df_X_text, tokenizer, mode, max_words, 
+            maxlen, embedding_dim, embeddings_index)
 
     print("complete encoding part of textual data!") 
 
@@ -446,19 +444,18 @@ if __name__ == '__main__':
 
 # Separate config (max_words, maxlen, mode) and state (vectorizer and scaler)
 class WordEmbeddingConfig(object):
-
 	def __init__(self, max_words, maxlen, embedding_dim, glove_file_path):
 		self.max_words = max_words
 		self.maxlen = maxlen
 		self.embedding_dim = embedding_dim
-		self.glove_file_path = glove_file_path
+		self.embeddings_index = open_glove(glove_file_path)
 
 class TFIDFConfig(object):
 	def __init__(self, max_words):
 		self.max_words = max_words
 
 
-# text_config=TFIDFEncodeConfig(100)
+# text_config=TFIDFConfig(100)
 
 # encoder = Encoder(metadata, text_config=text_config)
 
@@ -495,7 +492,7 @@ class Encoder(object):
 		elif isinstance(self.text_config, WordEmbeddingConfig):
 			y, X_struc, X_text, self.vectorizer, self.scaler, self.tokenizer, self.embedding_matrix = encode_dataset(
 				df, self.metadata, mode='glove', max_words=self.text_config.max_words, maxlen=self.text_config.maxlen, 
-				embedding_dim=self.text_config.embedding_dim, glove_file_path=self.text_config.glove_file_path)
+				embedding_dim=self.text_config.embedding_dim, embeddings_index=self.text_config.embeddings_index)
 
 		else:
 			raise ValueError('Unknown type of config: {}'.format(type(self.text_config)))
@@ -512,10 +509,9 @@ class Encoder(object):
 			 scaler=self.scaler, tokenizer=self.tokenizer, mode='tfidf', max_words=self.text_config.max_words)
 			
 		elif isinstance(self.text_config, WordEmbeddingConfig):
-			pass
 			y, X_struc, X_text, _, _, _, self.embedding_matrix = encode_dataset(df, self.metadata, vectorizer=self.vectorizer, 
-				scaler=self.scaler, tokenizer=self.tokenizer, mode='glove', max_words=self.text_config.max_words, maxlen=text_config.maxlen, 
-				embedding_dim=self.text_config.embedding_dim, glove_file_path=self.text_config.glove_file_path)
+				scaler=self.scaler, tokenizer=self.tokenizer, mode='glove', max_words=self.text_config.max_words, maxlen=self.text_config.maxlen, 
+				embedding_dim=self.text_config.embedding_dim, embeddings_index=self.text_config.embeddings_index)
 
 		else:
 			raise ValueError('Unknown type of config: {}'.format(type(self.text_config)))
