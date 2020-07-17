@@ -7,14 +7,20 @@ This example code can encode kickstarter dataset, which contains numerical, cate
 
 ```shell
 export DATA_DIR=$HOME/projects/Predict-The-Success-of-Crowdfunding/raw_data_webrobots
-export DATA_NAME=kickstarter
-export CONFIG_FILE=config.json
-export USE_TEXT_FEATURES=True
-export ENCODE_TEXT_WITH=tfidf
+export GLOVE_DIR=$HOME/projects/Predict-The-Success-of-Crowdfunding/glove
+export DATA_NAME=KICK
+export OUTPUT_DIR=$HOME/projects/Predict-The-Success-of-Crowdfunding/outputs_test
 
-python encode_data_separate.py --data_dir $DATA_DIR \
-                               --data_name $DATA_NAME \
-                               --config_file $CONFIG_FILE \
-                               --use_text_features $USE_TEXT_FEATURES \
-                               --encode_text_with $ENCODE_TEXT_WITH
+
+python encoder.py --data_dir $DATA_DIR \
+                  --data_name $DATA_NAME \
+                  --output_dir $OUTPUT_DIR\
+                  --metadata_file metadata_comb.json \
+                  --use_text_features True \
+                  --encode_text_with glove\
+                  --glove_dir $GLOVE_DIR \
+                  --glove_file glove.6B.50d.txt \
+                  --max_words 20\
+                  --max_sequence_length 5\
+                  --embedding_dim 50
 ```
