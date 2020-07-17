@@ -3,7 +3,7 @@ A Neural Network model can predict the success of crowdfunding projects
 
 This project is using the Kickstarter (latest 2019) and Indiegogo (latest 2017) datasets collected from [Webrobots.io](https://webrobots.io/projects/).
 
-This example code can encode kickstarter dataset, which contains numerical, categorical, and textual features, and use TF-IDF encode the textual features.
+This example code can encode kickstarter dataset, which contains numerical, categorical, and textual features, and it's using pre-trained GloVe to encode the textual feature.
 
 ```shell
 export DATA_DIR=$HOME/projects/Predict-The-Success-of-Crowdfunding/raw_data_webrobots
