@@ -18,8 +18,7 @@ python encoder.py --data_dir $DATA_DIR \
                   --metadata_file metadata_comb.json \
                   --use_text_features True \
                   --encode_text_with glove\
-                  --glove_dir $GLOVE_DIR \
-                  --glove_file glove.6B.50d.txt \
+                  --glove_file $GLOVE_DIR/glove.6B.50d.txt \
                   --max_words 20\
                   --max_sequence_length 5\
                   --embedding_dim 50
