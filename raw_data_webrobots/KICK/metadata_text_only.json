@@ -1,0 +1,1 @@
+{"output_type": "classes", "input_features": ["desc_clean"], "output_label": ["label"], "input_text": ["desc_clean"], "input_float": [], "input_int": [], "input_categorical": [], "input_datetime": [], "input_bool": []}
