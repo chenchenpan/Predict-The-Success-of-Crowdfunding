@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import json
 
-def get_fake_dataset(with_text_col=False): 
+def get_fake_dataset(with_text_col=False, text_only=False): 
 ## you can change this to create your own test dataset here ##
     if with_text_col:
         df_train = pd.DataFrame({'height': [1,2,3], 'key_words': ['hello', 'hi', 'yes'], 
@@ -22,16 +22,29 @@ def get_fake_dataset(with_text_col=False):
                                 "It is tabloid format but with academic articles",
                                 "a strong-willed Russian madam and The Cross at its most fabulous."],
                         'label': [2, 1, 2]})
-        metadata = {'output_type': 'classes',
-                    'input_features': ['height','key_words','text'],
-                    'output_label': ['label'],
-                    'input_text': ['text'],
-                    'input_bool': [],
-                    'input_categorical': ['key_words'],
-                    'input_datetime': [],
-                    'input_int': ['height'],
-                    'input_float': []
-                    } 
+        if text_only:
+            metadata = {'output_type': 'classes',
+                        'input_features': ['text'],
+                        'output_label': ['label'],
+                        'input_text': ['text'],
+                        'input_bool': [],
+                        'input_categorical': [],
+                        'input_datetime': [],
+                        'input_int': [],
+                        'input_float': []
+                        } 
+
+        else:
+            metadata = {'output_type': 'classes',
+                        'input_features': ['height','key_words','text'],
+                        'output_label': ['label'],
+                        'input_text': ['text'],
+                        'input_bool': [],
+                        'input_categorical': ['key_words'],
+                        'input_datetime': [],
+                        'input_int': ['height'],
+                        'input_float': []
+                        } 
     else:    
         df_train = pd.DataFrame({'height': [1,2,3], 'key_words': ['hello', 'hi', 'yes'], 'label': [0, 1, 2]})
         df_dev = pd.DataFrame({'height': [4,7,5], 'key_words': ['hi', 'hi', 'yes'], 'label': [1, 1, 2]})

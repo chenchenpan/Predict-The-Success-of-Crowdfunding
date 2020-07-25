@@ -4,7 +4,6 @@
 import pandas as pd
 import numpy as np
 import time
-import joblib
 import collections
 import argparse
 import os
@@ -45,7 +44,7 @@ def main():
         help=('which data will be used? (kickstarter Or indiegogo?)'))
 
     parser.add_argument('--metadata_file', type=str,
-        # default='config.json',
+        # default='metadata.json',
         help=('which tabular metadata file will be used?'))
 
     # parameter for using text features
@@ -57,13 +56,13 @@ def main():
         # default='tfidf',
         help=('how to encode the text features? (tfidf, glove)'))
 
-    parser.add_argument('--glove_dir', type=str,
-        # default='/data/home/t-chepan/projects/MS-intern-project/raw_data',
-        help=('directory to load the pre-trained GloVe.'))
+    # parser.add_argument('--glove_dir', type=str,
+    #     # default='/data/home/t-chepan/projects/MS-intern-project/raw_data',
+    #     help=('directory to load the pre-trained GloVe.'))
 
     parser.add_argument('--glove_file', type=str,
         # default='/data/home/t-chepan/projects/MS-intern-project/raw_data',
-        help=('which GloVe file will be used? (glove.840B.300d.txt)'))
+        help=('the path to GloVe file. (glove.840B.300d.txt)'))
 
     parser.add_argument('--max_words', type=int,
         # default='/data/home/t-chepan/projects/MS-intern-project/raw_data',
@@ -88,6 +87,12 @@ def main():
     if args.data_name is not None and args.data_dir is not None:
         path_to_data = os.path.join(args.data_dir, args.data_name)
         path_to_save = os.path.join(args.output_dir, args.data_name)
+        if not os.path.exists(path_to_save):
+            os.makedirs(path_to_save)
+
+    elif args.data_name is None and args.data_dir is not None:
+        path_to_data = args.data_dir
+        path_to_save = args.output_dir
 
     else:
         raise argparse.ArgumentTypeError(args.data_name + ' or ' + args.data_dir + " can't be recognized.")
@@ -119,10 +124,10 @@ def main():
         text_config.max_words = args.max_words          
 
         if mode == 'glove':
-            glove_file_path = os.path.join(args.glove_dir, args.glove_file)
+            # glove_file_path = os.path.join(args.glove_dir, args.glove_file)
             text_config.maxlen = args.max_sequence_length
             text_config.embedding_dim = args.embedding_dim
-            text_config.embeddings_index = open_glove(glove_file_path)
+            text_config.embeddings_index = open_glove(args.glove_file)
 
         if mode != 'glove' and mode != 'tfidf':
             raise argparse.ArgumentTypeError(mode, "can't be recognized.")
@@ -138,7 +143,7 @@ def main():
 
     if encoder.embedding_matrix is not None:
         f_path = os.path.join(path_to_save, 'embedding_matrix.npy')
-        text_config.embedding_matrix = f_path
+        text_config.embedding_matrix_path = f_path
         with open(f_path, 'wb') as f:
             np.save(f, encoder.embedding_matrix)
 
